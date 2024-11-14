@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Drumming Tool</title>
+    <style>
+        .permutation {
+            display: inline-block;
+            margin: 10px;
+            padding: 10px;
+            border: 1px solid #000;
+            cursor: pointer;
+            text-align: center;
+        }
+        .note {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            margin: 2px;
+            background-color: lightgray;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+        .played {
+            background-color: black;
+        }
+        .unaccented {
+            background-color: #d3d3d3; /* Light gray for unaccented notes */
+            transform: scale(0.6); /* Smaller size for unaccented notes */
+        }
+    </style>
+</head>
+<body>
+    <h1>16th Note Permutations</h1>
+    <div id="permutations"></div>
+    <label>
+        Tempo: <input type="range" id="tempo" min="60" max="180" value="60"> <span id="tempoValue">60</span> BPM
+    </label>
+    <br>
+    <label>
+        Loop: <input type="checkbox" id="loop">
+    </label>
+    <br>
+    <label>
+        Ghost Notes: <input type="checkbox" id="ghostNoteToggle">
+    </label>
+    <br>
+    <button onclick="generateRandomPatterns()">Generate Random Patterns</button>
+    <button id="playStopButton" onclick="togglePlay()">Play</button>
+    <div id="randomPatterns" style="margin-top: 20px;"></div>
+    
+    <script>
+        const permutations = [
+            [1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1],
+            [1, 1, 0, 0], [1, 0, 1, 0], [1, 0, 0, 1],
+            [0, 1, 1, 0], [0, 1, 0, 1], [0, 0, 1, 1],
+            [1, 1, 1, 0], [1, 1, 0, 1], [1, 0, 1, 1],
+            [0, 1, 1, 1], [1, 1, 1, 1]
+        ];
+
+        const drumSound = new Audio('snare-drum.wav');
+        const ghostSound = new Audio('snare-drum_ghost.wav');
+        let tempo = 60;
+        let isLooping = false;
+        let isPlaying = false;
+        let ghostNotesEnabled = false;
+        let playInterval;
+        let randomPatterns = [];
+
+        document.getElementById('tempo').addEventListener('input', () => {
+            tempo = parseInt(document.getElementById('tempo').value);
+            document.getElementById('tempoValue').textContent = tempo;
+        });
+
+        document.getElementById('loop').addEventListener('change', () => {
+            isLooping = document.getElementById('loop').checked;
+            if (!isLooping) stopAllSounds();
+        });
+
+        document.getElementById('ghostNoteToggle').addEventListener('change', () => {
+            ghostNotesEnabled = document.getElementById('ghostNoteToggle').checked;
+        });
+
+        const displayPermutations = () => {
+            const container = document.getElementById('permutations');
+            container.innerHTML = ''; // Clear existing permutations
+
+            permutations.forEach((pattern, index) => {
+                const permDiv = document.createElement('div');
+                permDiv.classList.add('permutation');
+
+                // Add numbering above the pattern
+                const number = document.createElement('div');
+                number.textContent = `#${index + 1}`;
+                permDiv.appendChild(number);
+
+                // Display pattern notes
+                pattern.forEach(note => {
+                    const noteDiv = document.createElement('div');
+                    noteDiv.classList.add('note');
+                    if (note === 1) noteDiv.classList.add('played');
+                    else noteDiv.classList.add('unaccented'); // Unaccented notes are lighter and smaller
+                    permDiv.appendChild(noteDiv);
+                });
+
+                // Add click event to play the pattern
+                permDiv.addEventListener('click', () => {
+                    playPattern(pattern);
+                    if (isLooping) startLoop(pattern);
+                });
+
+                container.appendChild(permDiv);
+            });
+        };
+
+        const playPattern = (pattern) => {
+            const noteDuration = 60000 / (tempo * 4);
+            pattern.forEach((note, index) => {
+                setTimeout(() => {
+                    if (note === 1) {
+                        drumSound.currentTime = 0;
+                        drumSound.play();
+                    } else if (ghostNotesEnabled) {
+                        ghostSound.currentTime = 0;
+                        ghostSound.play();
+                    }
+                }, index * noteDuration);
+            });
+        };
+
+        const startLoop = (pattern) => {
+            if (playInterval) clearInterval(playInterval);
+            playInterval = setInterval(() => playPattern(pattern), (60000 / (tempo * 4)) * 4);
+        };
+
+        const stopAllSounds = () => {
+            clearInterval(playInterval);
+            drumSound.pause();
+            drumSound.currentTime = 0;
+            ghostSound.pause();
+            ghostSound.currentTime = 0;
+        };
+
+        const generateRandomPatterns = () => {
+            const randomPatternsContainer = document.getElementById('randomPatterns');
+            randomPatternsContainer.innerHTML = '';
+            randomPatterns = [];
+
+            const firstPatternIndex = Math.floor(Math.random() * permutations.length);
+            let secondPatternIndex;
+            do {
+                secondPatternIndex = Math.floor(Math.random() * permutations.length);
+            } while (secondPatternIndex === firstPatternIndex);
+
+            randomPatterns = [
+                { pattern: permutations[firstPatternIndex], index: firstPatternIndex },
+                { pattern: permutations[secondPatternIndex], index: secondPatternIndex }
+            ];
+
+            randomPatterns.forEach((randomPattern, randomIndex) => {
+                const permDiv = document.createElement('div');
+                permDiv.classList.add('permutation');
+
+                // Number with original ID from `permutations` array
+                const number = document.createElement('div');
+                number.textContent = `Random #${randomPattern.index + 1}`;
+                permDiv.appendChild(number);
+
+                randomPattern.pattern.forEach(note => {
+                    const noteDiv = document.createElement('div');
+                    noteDiv.classList.add('note');
+                    if (note === 1) noteDiv.classList.add('played');
+                    else noteDiv.classList.add('unaccented'); // Unaccented notes are lighter and smaller
+                    permDiv.appendChild(noteDiv);
+                });
+                randomPatternsContainer.appendChild(permDiv);
+            });
+        };
+
+        const togglePlay = () => {
+            const playButton = document.getElementById('playStopButton');
+            if (!isPlaying) {
+                isPlaying = true;
+                playButton.textContent = "Stop";
+                playRandomPatterns();
+            } else {
+                isPlaying = false;
+                playButton.textContent = "Play";
+                clearInterval(playInterval);
+            }
+        };
+
+        const playRandomPatterns = () => {
+            let patternIndex = 0;
+            playInterval = setInterval(() => {
+                playPattern(randomPatterns[patternIndex].pattern);
+                patternIndex = (patternIndex + 1) % randomPatterns.length;
+            }, (60000 / (tempo * 4)) * 4);
+        };
+
+        displayPermutations();
+    </script>
+</body>
+</html>
